@@ -1,0 +1,12 @@
+// {type:class}
+// {direction:topDown}
+[Server|open();close();give_all(message)]
+
+[Host|give(message,flag);receive()]
+
+[socket]^[ClientSocket]
+[socket]^[ServerSocket]
+[ServerSocket]-++[Server]
+[ClientSocket]-++[Client]
+[ClientSocket]-<>[Host]
+[Host]-<>[Server]
