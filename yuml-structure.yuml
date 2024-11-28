@@ -1,7 +1,7 @@
 // {type:class}
 // {direction:topDown}
-[Server|open();close();give_all(message)]
 
+[Server|open();close();give_all(message)]
 [Host|give(message,flag);receive()]
 
 [socket]^[ClientSocket]
@@ -9,4 +9,10 @@
 [ServerSocket]-++[Server]
 [ClientSocket]-++[Client]
 [ClientSocket]-<>[Host]
-[Host]-<>[Server]
+[Host]*-<>[Server]
+[Client]-++[Driver] 
+
+[Server]^[game_bk_en]
+[Driver]-[client_nst]
+[note: code written by developer]-[client_nst]
+[note: code written by developer]-[game_bk_en]

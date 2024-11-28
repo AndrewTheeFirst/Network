@@ -1,11 +1,15 @@
+from os import system, name as os_name
 from threading import Thread
-from typing import Callable
-from dataclasses import dataclass
-from socket import socket, \
-    getdefaulttimeout, \
-        AF_INET, SOCK_STREAM
-from consts import HEADER_LENGTH, ACK_SIZE, ACK, \
-      OUT, IN, GOOD, BAD
+from typing import Callable, overload
+from curses import window
+from time import sleep
+
+def clear():
+    '''clears the console / terminal'''
+    if os_name == "nt":
+        system("cls")
+    else:
+        print("\x1b[2J\x1b[H", end="")
 
 def background_process(func: Callable) -> Callable:
     '''aync function decorator'''
@@ -14,82 +18,40 @@ def background_process(func: Callable) -> Callable:
         t.start()
     return wrapper
 
-@dataclass
-class Data:
-    data: bytes
-    received: bool = False
+@overload
+def wprint(self, window: window, message: str): ...
 
-def make_header(data: bytes):
-    header = str(len(data)).encode()
-    header += b' ' * (HEADER_LENGTH - len(header))
-    return Data(header)
+@overload
+def wprint(window: window, y: int, x: int, message: str): ...
 
-class ServerSocket(socket):
-    '''
-    initializes a IPv4 server socket that uses TCP'''
-    def __init__(self):
-        super().__init__(AF_INET, SOCK_STREAM)
+def wprint(window: window, arg_1: str | int, x: int = -1, message: str = ""):
+    '''Adds string to window with automatic refresh'''
+    if not message: # the first arg is message
+        message = arg_1
+    else: # the first two args are coords
+        window.move(arg_1, x)
+    window.addstr(message)
+    window.refresh()
 
-    def accept(self):
-        """accept() -> (ClientSocket, address info)
+@overload
+def wread(window: window, message: str, speed: int = 1): ...
+@overload
+def wread(window: window, y: int, x: int, message: str, speed: int = 1): ...
 
-        Wait for an incoming connection. Return a new ClientSocket
-        representing the connection, and the address of the client.
-        """
-        fd, addr = self._accept()
-        sock = ClientSocket(self.family, self.type, self.proto, fileno=fd)
-        if getdefaulttimeout() is None and self.gettimeout():
-            sock.setblocking(True)
-        return sock, addr
-    
-class ClientSocket(socket):
-    '''
-    special socket used to abstract sending / receiving data and maintaining protocol'''
-    def give(self, message: str, flag: str = OUT) -> str:
-        '''
-        Sends message and message header to client socket. 
-        Optional IN flag parameter, if IN parameter is passed receive() must be called! Returns BAD if an error occurs, otherwise returns GOOD.'''
-        try:
-            if flag == IN:
-                # print("sending flag")
-                self.give(flag)
-            data = Data(message.encode()) 
-            header = make_header(data.data)
-            # print("sending header")
-            if self._send(header):
-                # print("sending data")
-                self._send(data)
-            return GOOD
-        except Exception as e:
-            print(f"Something went wrong while sending a message: {e}")
-            return BAD
+def wread(window: window, arg_1: str | int, arg_2: int = 1, message: str = "", speed = 1):
+    '''Adds string to window with automatic refresh.
+    Prints one char at a time to emulate a typed look'''
+    if not message: # the first two args is message and speed respectively
+        speed = arg_2
+        message = arg_1
+    else: # the first two args are coords
+        window.move(arg_1, arg_2)
+    rate = 0.1/speed
+    for char in message:
+        sleep(rate)
+        window.addch(char)
+        window.refresh()
 
-    def _send(self, data: Data) -> bool:
-        '''
-        sends encoded data, and waits for client acks, and marks data as received'''
-        self.send(data.data)
-        response = self.recv(ACK_SIZE)
-        if response:
-            data.received = True
-        return data.received
-  
-    def receive(self) -> str:
-        '''
-        handles receiving messages from the client's server and sends acks when messages are received and returns the message. (assumes first message is a header). When successful, method returns the message, otherwise returns BAD.'''
-        try:
-            header = self.recv(HEADER_LENGTH) # receives header with size of incoming message
-            if not header:
-                return BAD
-            message_len = int(header)
-            # print(f"header size: {message_len}")
-            # print("sending ack")
-            self.send(ACK)
-            message = self.recv(message_len).decode() # receives actual message
-            if not message: # (could possibly be removed, doesnt assume that message will be received properly even if header is received.)
-                return BAD
-            # print("sending ack")
-            self.send(ACK)
-            return message
-        except Exception as e:
-            print(f"something went wrong while receiving a message: {e}")
-            return BAD
+def wclear(window: window):
+    window.clear()
+    window.refresh()

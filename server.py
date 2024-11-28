@@ -1,29 +1,39 @@
-from utils import ServerSocket, ClientSocket, background_process
-from consts import HOST, PORT,\
+from .sockets import ServerSocket, ClientSocket
+from .utils import background_process
+from .consts import HOST, PORT,\
       IN, OUT, BAD, GOOD
 
 class Host:
     def __init__(self, sock: ClientSocket, addr: tuple[str, int]):
+        '''
+        Args:
+            sock (ClientSocket): the actual socket returned when any client connects to the server
+            addr (tuple[str, int]): the actual address returned when any client connects to the server'''
         self.sock = sock
         self.ip = addr[0]
         self.name = ""
         self.connected = True
     
-    def give(self, message: str, flag: str = OUT) -> str:
+    def give(self, message: str | object, flag: str = OUT) -> str:
         '''
-        Main method of communication to host following host initlization. If IN flag is used, receive method must also be called!'''
+        Is the method of communication to host following host initlization. If IN flag is used, receive 
+        method must also be called! Returns BAD if any errors occur, otherwise returns GOOD.'''
+        ret = BAD
+        end = "\n" if flag == OUT else ""
+        message = message if isinstance(message, str) else str(message)
         if not self.connected:
-            print(f"This host is no longer connected. (give, {message}, {flag})")
-            return BAD
-        elif self.sock.give(message, flag) == BAD:
+            print(f"This host is no longer connected.")
+        elif self.sock.give(message + end, flag) == BAD:
             self.disconnect()
-            return BAD
-        return GOOD
+        else:
+            ret = GOOD
+        return ret
 
     def receive(self) -> str:
+        '''Called when expecting any type of response from host.'''
+        message = BAD
         if not self.connected:
             print("This host is no longer connected.")
-            return BAD
         else:
             message = self.sock.receive()
             if message == BAD:
@@ -62,6 +72,7 @@ class Server:
         self.accepting = False
     
     def open(self):
+        '''Must be called to allow clients to connect to a server.'''
         print("Server is now open.")
         self.accepting = True
         self.accept_clients()
@@ -70,9 +81,12 @@ class Server:
         print("Server is now closed")
         self.accepting = False
 
-    def give_all(self, message: str):
+    def broadcast(self, message: str | object, flag: str = OUT):
+        '''Sends a message to all hosts currently connected to the server.
+        (careful with the flag on this one)'''
         for host in self.hosts:
-            host.give(message)
+            if host.connected:
+                host.give(message, flag)
 
     @background_process
     def accept_clients(self):
@@ -80,24 +94,24 @@ class Server:
             host_socket, host_addr = self.server_socket.accept()
             if self.accepting:
                 ip = host_addr[0]
-                if ip in self._get_host_ips():
+                if ip in self._get_host_ips(): # put 'and False if you do not want unique connections'
                     host = self._get_host_by_ip(ip)
                     host.sock = host_socket # update to most current socket
                     host.connnect()
-                    host.give(f"Welcome back {host.name}!\n")
+                    host.give(f"Welcome back {host.name}!")
                 else:
                     self.setup_host(host_socket, host_addr)
     
     def setup_host(self, host_socket: ClientSocket, host_addr: tuple[str, int]):
         host = Host(host_socket, host_addr)
         while host.set_name() in self._get_host_names():
-            host.sock.give("That name is taken!\n")
+            host.sock.give("That name is taken!")
         if host.name == BAD:
             print("A Host failed to connect")
         else:
             print(f"{host} has connected.")
             self.hosts.append(host)
-            host.give(f"Welcome {host.name}!\n")
+            host.give(f"Welcome {host.name}!")
     
     def _get_host_names(self):
         return [host.name for host in self.hosts]
