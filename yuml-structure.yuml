@@ -13,6 +13,6 @@
 [Client]-++[Driver] 
 
 [Server]^[game_bk_en]
-[Driver]-[client_nst]
-[note: code written by developer]-[client_nst]
+[Driver]-[game_exe]
+[note: code written by developer]-[game_exe]
 [note: code written by developer]-[game_bk_en]

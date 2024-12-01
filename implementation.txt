@@ -1,0 +1,4 @@
+Make everything more pythonic. ie adding properties
+Allow for mulithreaded sending and receiving. with a possibility of using ack numbers
+Implement more flags ie. IN_CH, IN_STR, or BG
+consider the possibility of switching to asyncio for threaded tasks

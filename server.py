@@ -2,6 +2,7 @@ from .sockets import ServerSocket, ClientSocket
 from .utils import background_process
 from .consts import HOST, PORT,\
       IN, OUT, BAD, GOOD
+from time import sleep
 
 class Host:
     def __init__(self, sock: ClientSocket, addr: tuple[str, int]):
@@ -102,6 +103,15 @@ class Server:
                 else:
                     self.setup_host(host_socket, host_addr)
     
+    # @background_process
+    # def broadcast_connected(self):
+    #     while True:
+    #         sleep(5)
+    #         connected_hosts = ""
+    #         for host in self.get_connected_hosts():
+    #             connected_hosts += host.name + " "
+    #         self.broadcast(connected_hosts.rstrip(), )
+
     def setup_host(self, host_socket: ClientSocket, host_addr: tuple[str, int]):
         host = Host(host_socket, host_addr)
         while host.set_name() in self._get_host_names():
@@ -112,6 +122,9 @@ class Server:
             print(f"{host} has connected.")
             self.hosts.append(host)
             host.give(f"Welcome {host.name}!")
+    
+    def get_connected_hosts(self):
+        return [host for host in self.hosts if host.connected]
     
     def _get_host_names(self):
         return [host.name for host in self.hosts]

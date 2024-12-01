@@ -42,7 +42,7 @@ class Driver:
     def make_game_area(self, refresh: bool = False):
         '''main area for updating game graphics'''
         area_outline = curses.newwin(self.lines - 2, self.cols - 1, 1, 0)
-        game_area = curses.newwin(self.lines - 4, self.cols - 5, 2, 2) # give 2 cols of space (cols smaller than lines)
+        game_area = curses.newwin(self.lines - 4, self.cols - 7, 2, 3) # give 2 cols of space (cols smaller than lines)
 
         area_outline.box()
         # game_area.box() # just to see where the area is
@@ -62,6 +62,7 @@ class Driver:
                     break
                 case 'C':
                     wclear(self.footer)
+                    self.client.build_window()
                     ret = self.client.join_server()
                     if ret:
                         self.client.main_loop()
