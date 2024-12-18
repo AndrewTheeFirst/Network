@@ -1,16 +1,17 @@
 from dataclasses import dataclass
 from socket import socket, getdefaulttimeout
 from time import sleep
-from .utils import background_process
+from .utils import asynchronus
 from .consts import HEADER_LENGTH, ACK_SIZE, ACK, \
-      OUT, IN, GOOD, BAD, CLEAR
+      OUT, IN, GOOD, BAD, CLEAR, NULL_MESSAGE
+
 
 @dataclass
 class Data:
     data: bytes
     received: bool = False
 
-    @background_process
+    @asynchronus
     def start_timeout(self, timeout = 4):
         sleep(timeout)
         if not self.received:
@@ -47,9 +48,10 @@ class ClientSocket(socket):
         Optional IN flag parameter, if IN parameter is passed receive() must be called! 
         Returns BAD if an error occurs, otherwise returns GOOD.'''
         ret = GOOD
+        message = NULL_MESSAGE if message == "" else message
         try:
             if flag != OUT:
-                print(f"sending flag ({'CLEAR' if flag == CLEAR else 'IN'})")
+                # print(f"sending flag ({'CLEAR' if flag == CLEAR else 'IN'})")
                 ret = self.give(flag)
             data = Data(message.encode()) 
             header = make_header(data.data)
@@ -90,7 +92,7 @@ class ClientSocket(socket):
                 if message: # (could possibly be removed, doesnt assume that message will be received properly even if header is received.)
                     # print(f"sending ack ({message})")
                     self.send(ACK)
-                    ret = message
+                    ret = "" if message == NULL_MESSAGE else message
         except Exception as e:
             print(f"something went wrong while receiving a message: {e}")
         return ret
