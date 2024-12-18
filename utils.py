@@ -11,7 +11,7 @@ def clear():
     else:
         print("\x1b[2J\x1b[H", end="")
 
-def background_process(func: Callable) -> Callable:
+def asynchronus(func: Callable) -> Callable:
     '''aync function decorator'''
     def wrapper(*args):
         t = Thread(target = func, args = args)

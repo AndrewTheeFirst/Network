@@ -1,8 +1,10 @@
 from .sockets import ServerSocket, ClientSocket
-from .utils import background_process
+from .utils import asynchronus
 from .consts import HOST, PORT,\
       IN, OUT, BAD, GOOD
 from time import sleep
+from _socket import MSG_PEEK
+import select
 
 class Host:
     def __init__(self, sock: ClientSocket, addr: tuple[str, int]):
@@ -23,7 +25,8 @@ class Host:
         end = "\n" if flag == OUT else ""
         message = message if isinstance(message, str) else str(message)
         if not self.connected:
-            print(f"This host is no longer connected.")
+            # print(f"This host is no longer connected.")
+            ...
         elif self.sock.give(message + end, flag) == BAD:
             self.disconnect()
         else:
@@ -44,12 +47,23 @@ class Host:
     def disconnect(self):
         self.connected = False
         self.sock.close()
-        print(f"{self} has disconnected")
+        print(f"{self.name} has disconnected")
     
     def connnect(self):
         self.connected = True
-        print(f"{self} has connected.")
-    
+        print(f"{self.name} has connected.")
+
+    def is_connected(self):
+        rlist, _, _ = select.select([self.sock], [], [], 0)
+        if rlist:
+            try:
+                data = self.sock.recv(1, MSG_PEEK)
+                if data:
+                    return False
+            except Exception as e:
+                return False
+        return True
+
     def set_name(self) -> str:
         self.give("Enter a username: ", IN)
         self.name = self.receive()
@@ -59,6 +73,7 @@ class Host:
         return f"[{self.name}, {self.ip}]"
 
 class Server:
+    '''NOTE - .open must be called for the server to accecpt clients'''
     def __init__(self, serv_addr: tuple[str, int] = (HOST, PORT), max_conn: int = 1):
         '''
         Args:
@@ -77,6 +92,18 @@ class Server:
         print("Server is now open.")
         self.accepting = True
         self.accept_clients()
+        self.update_connected()
+    
+    @asynchronus
+    def update_connected(self):
+        while True:
+            sleep(1)
+            for host_index in range(len(self.hosts) - 1, -1, -1):
+                host = self.hosts[host_index]
+                if not host.is_connected():
+                    self.hosts.pop(host_index)
+                    host.disconnect()
+
 
     def close(self):
         print("Server is now closed")
@@ -89,7 +116,7 @@ class Server:
             if host.connected:
                 host.give(message, flag)
 
-    @background_process
+    @asynchronus
     def accept_clients(self):
         while True:
             host_socket, host_addr = self.server_socket.accept()
@@ -119,7 +146,7 @@ class Server:
         if host.name == BAD:
             print("A Host failed to connect")
         else:
-            print(f"{host} has connected.")
+            host.connnect()
             self.hosts.append(host)
             host.give(f"Welcome {host.name}!")
     
