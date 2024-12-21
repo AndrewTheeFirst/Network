@@ -1,3 +1,3 @@
 from .server import Server, Host
-from .driver import Driver
-from .consts import IN, OUT, GOOD, BAD, CLEAR
+from .client import BaseClient
+from .consts import *

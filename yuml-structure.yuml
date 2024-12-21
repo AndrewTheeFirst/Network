@@ -1,18 +1,21 @@
 // {type:class}
 // {direction:topDown}
 
-[Server|open();close();give_all(message)]
-[Host|give(message,flag);receive()]
+[ClientSocket|csend();crecv()]
+[Host|give();receive()]
+[Server|open();close();broadcast()]
+[BaseClient|connect()]
 
 [socket]^[ClientSocket]
 [socket]^[ServerSocket]
 [ServerSocket]-++[Server]
-[ClientSocket]-++[Client]
+[ClientSocket]-++[BaseClient]
+[ABC]^[BaseClient]
 [ClientSocket]-<>[Host]
 [Host]*-<>[Server]
-[Client]-++[Driver] 
 
-[Server]^[game_bk_en]
-[Driver]-[game_exe]
-[note: code written by developer]-[game_exe]
-[note: code written by developer]-[game_bk_en]
+[BaseClient]^[Client]
+[Server]^[Application]
+[Application]-[note: code written by developer]
+[Client]-[note: code written by developer]
+

@@ -14,7 +14,7 @@ HEADER_LENGTH = 8
 
 NULL_MESSAGE = "\0"
 
-HOST = "10.26.34.39" # laptop in dorm
+# HOST = "10.26.34.39" # laptop in dorm
 # HOST = "10.26.7.26"
-# HOST = "192.168.1.184" # laptop at home
+HOST = "192.168.1.184" # laptop at home
 PORT = 5555
