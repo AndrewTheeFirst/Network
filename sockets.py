@@ -1,11 +1,12 @@
 from socket import socket, getdefaulttimeout
 from threading import Thread
 from .consts import *
+from dataclasses import dataclass
 
-def make_header(data: bytes):
-    header = str(len(data)).encode()
-    header += b' ' * (HEADER_LENGTH - len(header))
-    return header
+ACK = "RECEIVED".encode()
+ACK_SIZE = len(ACK)
+HEADER_LENGTH = 8
+NULL_MESSAGE = "\0"
 
 class ServerSocket(socket):
     '''
@@ -23,66 +24,72 @@ class ServerSocket(socket):
             sock.setblocking(True)
         return sock, addr
 
+@dataclass
+class Packet:
+    received: bool = False
+
 class ClientSocket(socket):
     
     '''
-    special socket used to abstract sending / receiving data and maintaining protocol'''
+    Special socket used to abstract sending / receiving data and maintaining protocol'''
 
     def crecv(self) -> str:
         '''
-        handles receiving messages from the client's server and sends acks when messages are received and returns the message.
-        (assumes first message is a header). When successful, method returns the message, otherwise returns BAD.'''
+        Receive a message from a client / server.\n
+        When successful, method returns the message, otherwise returns consts.BAD.'''
         ret = BAD
         try:
-            header = super().recv(HEADER_LENGTH) # receives header with size of incoming message
-            if header:
-                message_len = int(header)
-                # print(f"header size: {message_len}")
-                # print(f"sending ack (header)")
+            header = super().recv(HEADER_LENGTH)
+            if header.isdigit():
                 super().send(ACK)
-                message = super().recv(message_len).decode() # receives actual message
-                if message: # (could possibly be removed, doesnt assume that message will be received properly even if header is received.)
-                    # print(f"sending ack ({message})")
+                message = super().recv(int(header)).decode()
+                if message:
                     super().send(ACK)
                     ret = "" if message == NULL_MESSAGE else message
         except Exception as e:
             print(f"something went wrong while receiving a message: {e}")
         return ret
 
-    def csend(self, message: str, flag: str = OUT) -> str:
+    @staticmethod    
+    def _make_header(data: bytes):
+        header = str(len(data)).encode()
+        header += b' ' * (HEADER_LENGTH - len(header))
+        return header
+
+    def _receive_ack(self, packet: Packet):
+        self.recv(ACK_SIZE)
+        packet.received = True
+
+    def _send_aspacket(self, data: bytes, /, timeout = 2, tries = 3) -> bool:
+        packet = Packet()
+        super().send(data)
+        t = Thread(self._receive_ack(), packet)
+        t.start()
+        for _ in range(tries - 1):
+            t.join(timeout)
+            if not t.is_alive():
+                break
+            super().send(data)
+        if t.is_alive():
+            raise Exception("Connection Error: Packet was not ACKED in time.")
+        if not packet.received:
+            raise Exception("Connection Error: The server could not be reached.")
+
+    def _send_asdatagram(self, message: str):
+        data = message.encode()
+        header = ClientSocket._make_header(data)
+        self._send_aspacket(header)
+        self._send_aspacket(data)
+
+    def csend(self, message: str, flag: str = None) -> str:
         '''
-        Sends message and message header to client socket. 
-        Optional IN flag parameter, if IN parameter is passed receive() must be called! 
-        Returns BAD if an error occurs, otherwise returns GOOD.'''
-        ret = GOOD
+        Send a message to a client / server.\n
+        Returns consts.BAD if an error occurs, otherwise returns consts.OK.'''
         message = NULL_MESSAGE if message == "" else message
         try:
-            if flag != OUT:
-                data = flag.encode()
-                print(f"sending flag ({'CLEAR' if flag == CLEAR else 'IN'})")
-                self.send_datagram(data) # i used to return the result here, but function no longer yields result
-            data = message.encode()
-            self.send_datagram(data)
+            if flag:
+                self._send_asdatagram(flag)
+            self._send_asdatagram(message)
         except Exception as e:
-            print(f"Something went wrong while sending a message: {e}")
-            ret = BAD
-        return ret
-    
-    def send_datagram(self, data: bytes):
-        header = make_header(data)
-        self._send(header)
-        self._send(data)
-
-    def _send(self, data: bytes) -> bool:
-        '''
-        sends encoded data, and waits for client acks, and marks data as received'''
-        super().send(data)
-        receive_ack = Thread(target=super().recv, args=(ACK_SIZE,))
-        receive_ack.start()
-        receive_ack.join(2)
-        for _ in range(2):
-            if not receive_ack.is_alive():
-                break
-            super().send(data) # try to resend the data
-        else:
-            raise Exception("Connection Error: A sent packet was not ACKED in time.")
+            return BAD
+        return OK
