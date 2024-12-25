@@ -7,7 +7,7 @@ import select
 from random import randint
 from time import asctime, sleep
 
-LOG_PATH = "server_debug_log.txt"
+LOG_PATH = "debug/server_debug_log.txt"
 ID = randint(1, 100)
 def add_to_log(message: str):
     with open(LOG_PATH, 'a') as log:
@@ -36,7 +36,7 @@ class Host:
         elif self.sock.csend(message + end, flag) == BAD:
             self.disconnect()
         else:
-            ret = GOOD
+            ret = OK
         return ret
 
     def receive(self) -> str:

@@ -8,7 +8,7 @@ from _socket import MSG_PEEK
 from time import sleep, asctime
 from random import randint
 
-LOG_PATH = "client_debug_log.txt"
+LOG_PATH = "debug/client_debug_log.txt"
 ID = randint(1, 100)
 def add_to_log(message: str):
     with open(LOG_PATH, 'a') as log:
