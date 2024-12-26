@@ -1,7 +1,6 @@
 from .consts import IN, BAD, CLEAR, BG, CHAT
 from .sockets import ClientSocket
 from abc import ABC, abstractmethod
-import asyncio
 from threading import Thread
 import select
 from _socket import MSG_PEEK
@@ -20,8 +19,6 @@ class BaseClient(ABC):
         self.connected = False
         self.server = ClientSocket()
         self.server_addr = ()
-        self.eventloop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.eventloop)
 
     def disconnect(self, e: str = "You have been disconnected"):
         self.server.close()
@@ -29,22 +26,22 @@ class BaseClient(ABC):
         add_to_log(e)
     
     def connect(self):
-        self.eventloop.run_until_complete(self._connect())
+        self._connect()
         if self.connected:
-            updating = Thread(target=self.update_connected)
             receiving = Thread(target=self.receive_messages)
-            updating.start()
+            updating = Thread(target=self.update_connected)
             receiving.start()
-            updating.join()
+            updating.start()
             receiving.join()
+            updating.join()
                 
-    async def _connect(self, timeout: int = 1):
+    def _connect(self):
         try:
             self.server = ClientSocket()
-            connecting = asyncio.to_thread(self.server.connect, self.server_addr)
-            await asyncio.wait_for(connecting, timeout)
-            self.connected = True
-        except asyncio.TimeoutError:
+            self.server.connect(self.server_addr)
+            if self.server.recv(1, MSG_PEEK):
+                self.connected = True
+        except TimeoutError:
             add_to_log("Timeout Error: Server may currently be closed.")
         except Exception as e:
             add_to_log(f"Invalid Server Address: {e}")
@@ -52,6 +49,9 @@ class BaseClient(ABC):
     def update_connected(self):
         while self.connected:
             sleep(1)
+            if not self.server or self.server.fileno() == -1:
+                self.disconnect("Something went wrong.")
+                break
             rlist, _, _ = select.select([self.server], [], [], 0)
             if rlist:
                 try:
