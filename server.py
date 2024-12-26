@@ -6,11 +6,17 @@ from _socket import MSG_PEEK
 import select
 from random import randint
 from time import asctime, sleep
+from os.path import exists
+
+
 
 LOG_PATH = "debug/server_debug_log.txt"
 ID = randint(1, 100)
 def add_to_log(message: str):
-    with open(LOG_PATH, 'a') as log:
+    mode = 'w'
+    if exists(LOG_PATH):
+        mode = 'a'
+    with open(LOG_PATH, mode) as log:
         log.write(f"{asctime()} | PID {ID}: {message}\n")
 
 class Host:
@@ -24,7 +30,7 @@ class Host:
         self.name = ""
         self.connected = True
     
-    def give(self, message: str | object, flag: str = OUT) -> str:
+    def give(self, message: str | object, flag: str = None) -> str:
         '''
         Is the method of communication to host following host initlization. If IN flag is used, receive 
         method must also be called! Returns BAD if any errors occur, otherwise returns GOOD.'''
@@ -54,11 +60,11 @@ class Host:
         self.connected = False
         self.sock.close()
         if self.name:
-            print(f"{self.name} has disconnected")
+            add_to_log(f"{self.name} has disconnected")
     
     def connnect(self):
         self.connected = True
-        print(f"{self.name} has connected.")
+        add_to_log(f"{self.name} has connected.")
 
     def update_connected(self):
         rlist, _, _ = select.select([self.sock], [], [], 0)
@@ -97,20 +103,31 @@ class Server:
         self.server_socket.listen(max_conn)
         self.hosts: list[Host] = []
         self.accepting = False
+        self.running = False
         
-    def close(self):
-        print("Server is now closed")
+    def close(self, prompt: bool = True):
+        if prompt:
+            add_to_log("Server is now closed.")
         self.accepting = False
         
     def open(self):
         '''Must be called to allow clients to connect to a server.'''
-        print("Server is now open.")
+        add_to_log("Server is now open.")
         self.accepting = True
+        self.running = True
         Thread(target=self.accept_clients).start()
         Thread(target=self.update_connected).start()
+    
+    def shutdown(self):
+        self.close()
+        self.running = False
+        while self.hosts:
+            host = self.hosts.pop()
+            host.disconnect()
+        add_to_log("Server is now shutdown.")
         
     def update_connected(self):
-        while True:
+        while self.running:
             sleep(1)
             for host_index in range(len(self.hosts) - 1, -1, -1):
                 host = self.hosts[host_index]
@@ -119,9 +136,11 @@ class Server:
                     host.disconnect()
 
     def accept_clients(self):
-        while True:
+        while self.running:
             host_socket, host_addr = self.server_socket.accept()
-            if self.accepting:
+            if not self.accepting:
+                self.server_socket.close()
+            else:
                 ip = host_addr[0]
                 if ip in self.get_host_ips(): # put 'and False if you do not want unique connections'
                     host = self.get_host_by_ip(ip)
