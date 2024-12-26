@@ -39,7 +39,7 @@ class ClientSocket(socket):
         When successful, method returns the message, otherwise returns consts.BAD.'''
         ret = BAD
         try:
-            header = super().recv(HEADER_LENGTH)
+            header = super().recv(HEADER_LENGTH).decode().rstrip()
             if header.isdigit():
                 super().send(ACK)
                 message = super().recv(int(header)).decode()
@@ -57,13 +57,14 @@ class ClientSocket(socket):
         return header
 
     def _receive_ack(self, packet: Packet):
-        self.recv(ACK_SIZE)
-        packet.received = True
+        ack = self.recv(ACK_SIZE)
+        if ack == ACK:
+            packet.received = True
 
-    def _send_aspacket(self, data: bytes, /, timeout = 2, tries = 3) -> bool:
+    def _send_aspacket(self, data: bytes, *, timeout = 2, tries = 3) -> bool:
         packet = Packet()
         super().send(data)
-        t = Thread(self._receive_ack(), packet)
+        t = Thread(target=self._receive_ack, args=(packet,))
         t.start()
         for _ in range(tries - 1):
             t.join(timeout)
